@@ -32,6 +32,7 @@ public class GeoLocateMain {
 	public static String GOOGLE_GEOCODE_API_URL = "https://maps.googleapis.com/maps/api/geocode/";
 	public static String GOOGLE_GEOCODE_API_RESP_FORMAT = "json";
 	public static String GOOGLE_GEOCODE_API_KEY = "AIzaSyCdTIuspmFfTAI7U4L6r2y9mXD5NovK8t8";
+	public static double EARTH_RADIUS = 3979d;
 	/**
 	 * @param args
 	 */
@@ -98,20 +99,53 @@ public class GeoLocateMain {
          DataSet dataSet = dataContext.query().from(table).selectAll().where("29115").eq(zipForQuery).execute();
        // DataSet dataset = dataContext.query();
          List<Row> rows = dataSet.toRows();
-         Row row = rows.get(0);
-         System.out.println("before bulk query"+row.getValue(4)+ (String)row.getValue(5)+row.getValue(6));
+         //Row row = rows.get(0);
+        // System.out.println("before bulk query"+row.getValue(4)+ (String)row.getValue(5)+row.getValue(6));
        // Schema schema = csvContext.getDefaultSchema();
          
          List<HashMap> bulkLocationReturn = getBulkLocation(rows);
-         System.out.println(bulkLocationReturn.get(0).get("lat"));
+         System.out.println(bulkLocationReturn.get(10).get("address"));
+         List<HashMap> bulkDistanceReturn = getLocationDistance(bulkLocationReturn,location);
          
-         
+         //Print the output by comparing the distance values
+         @SuppressWarnings("rawtypes")
+		ListIterator<HashMap> it = bulkDistanceReturn.listIterator();
+         while(it.hasNext())
+         {
+        	 Map<String, Object> item = (HashMap<String, Object>)it.next();
+        	 if ((Double)item.get("distance") <= (double)addressMapFromConsole.get("radius")) {
+				System.out.println(item.get("address")+"\t"+item.get("distance")+" miles");
+			}
+         }
+	}
+
+	private static List<HashMap> getLocationDistance(
+			List<HashMap> bulkLocationReturn, Map queryLocation) {
+		// TODO Auto-generated method stub
+		
+		Double radMultiplier = Math.PI / 180 ;
+		//ListIterator it = bulkLocationReturn.listIterator();
+		//while(it.hasNext())
+		for(int i=0;i<bulkLocationReturn.size();i++)
+		{
+			Map<String, Object> locationItem = bulkLocationReturn.get(i);
+			//System.out.println(locationItem.get("lat").toString()+"===>"+locationItem.get("address"));
+			double distance = (Math.acos(
+					Math.sin((Double)queryLocation.get("lat")*radMultiplier)* Math.sin((Double)locationItem.get("lat")*radMultiplier)
+				+   Math.cos((Double)queryLocation.get("lat")*radMultiplier)* Math.cos((Double)locationItem.get("lat")*radMultiplier)
+				*   Math.cos((Double)queryLocation.get("lng")*radMultiplier - (Double)locationItem.get("lng")*radMultiplier))) * EARTH_RADIUS;
+			locationItem.put("distance", distance);
+			bulkLocationReturn.set(i, (HashMap) locationItem);
+		}
+		
+		return bulkLocationReturn;
 	}
 
 	private static List<HashMap> getBulkLocation(List<Row> rows) {
 		// TODO Auto-generated method stub
+		
 		BufferedReader in = null;
-		Map<String, Double> locationMap = new HashMap<String,Double>();
+		
 		List<HashMap> returnVal = new ArrayList<HashMap>();
 		int i = 0;
 		Row row = null;
@@ -120,7 +154,7 @@ public class GeoLocateMain {
 		String inBuffer = "http://www.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu8216tl1%2Cal%3Do5-942s1f&callback=renderBatch";
 		StringBuilder urlString = new StringBuilder();
 		urlString.append("http://www.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu8216tl1%2Cal%3Do5-942s1f&callback=renderBatch");
-		System.out.println("NO of rows in the bulk method = "+rows.size()); 
+		
 		ListIterator it =  rows.listIterator();
 		while(it.hasNext())
 		{
@@ -129,10 +163,10 @@ public class GeoLocateMain {
 			//urlString.append(i++);
 			inBuffer += ("&location="+row.getValue(4)+" "+row.getValue(5)+" "+row.getValue(6));
 			urlString.append("&location=").append(row.getValue(4).toString()).append(row.getValue(5).toString()).append(row.getValue(6).toString());
-			System.out.println(inBuffer);
+			//System.out.println(inBuffer);
 		}
 		
-		System.out.println(inBuffer);
+		//System.out.println(inBuffer);
 		//The address string from the console will have blank spaces in between.
 		// Need to replace them with "+" sign in the URL
 		//String urlFinalStr = urlString.toString().replace(" ", "%20");
@@ -163,10 +197,12 @@ public class GeoLocateMain {
 		JSONArray bulkResultArray = object.getJSONArray("results");
 		for(i=0;i<bulkResultArray.length();i++)
 		{
+			Map<String, Object> locationMap = new HashMap<String,Object>();
 			locationObject = bulkResultArray.getJSONObject(i).getJSONArray("locations").getJSONObject(0).getJSONObject("latLng");
 			locationMap.put("lat",Double.parseDouble(locationObject.get("lat").toString()));
 			locationMap.put("lng",Double.parseDouble(locationObject.get("lng").toString()));
-			returnVal.add((HashMap) locationMap);
+			locationMap.put("address",bulkResultArray.getJSONObject(i).getJSONObject("providedLocation").get("location").toString());
+			returnVal.add((HashMap<String,Object>) locationMap);
 		}
 		
 		} catch (MalformedURLException e) {
