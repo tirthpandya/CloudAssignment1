@@ -95,7 +95,7 @@ public class GeoLocateMain {
         	 zipForQuery = location.get("zip").toString().substring(1, location.get("zip").toString().length());
          else
         	 zipForQuery = location.get("zip").toString();
-        System.out.println(zipForQuery);
+        System.out.println("zip query===>"+zipForQuery);
          DataSet dataSet = dataContext.query().from(table).selectAll().where("29115").eq(zipForQuery).execute();
        // DataSet dataset = dataContext.query();
          List<Row> rows = dataSet.toRows();
@@ -148,13 +148,14 @@ public class GeoLocateMain {
 		
 		List<HashMap> returnVal = new ArrayList<HashMap>();
 		int i = 0;
+		int count = 0;
 		Row row = null;
 		String line = "";
 		String strForParsing = "";
 		String inBuffer = "http://www.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu8216tl1%2Cal%3Do5-942s1f&callback=renderBatch";
 		StringBuilder urlString = new StringBuilder();
 		urlString.append("http://www.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu8216tl1%2Cal%3Do5-942s1f&callback=renderBatch");
-		
+		System.out.println("Rows count==>"+rows.size());
 		ListIterator it =  rows.listIterator();
 		while(it.hasNext())
 		{
@@ -272,8 +273,17 @@ public class GeoLocateMain {
 			}
 		JSONObject object  = new JSONObject(strForParsing);
 		JSONObject results = (JSONObject)object.getJSONArray("results").get(0);
-		returnVal.put("zip", (String)results.getJSONArray("address_components").getJSONObject(6).getString("long_name"));
-		//System.out.println(results.getJSONArray("address_components").getJSONObject(6).getString("long_name"));
+		
+		//System.out.println(JSONObject.getNames(results.getJSONArray("address_components").getJSONObject(7))[1]);
+		for(int i=0;i<results.getJSONArray("address_components").length();i++)
+		{
+			if(results.getJSONArray("address_components").getJSONObject(i).getJSONArray("types").get(0).equals("postal_code") )
+			{
+				returnVal.put("zip", (String)results.getJSONArray("address_components").getJSONObject(i).getString("long_name"));
+			}
+				
+			
+		}
 		returnVal.put("lat", (Double)results.getJSONObject("geometry").getJSONObject("location").getDouble("lat"));
 		returnVal.put("lng", (Double)results.getJSONObject("geometry").getJSONObject("location").getDouble("lng"));
 		} catch (MalformedURLException e) {
