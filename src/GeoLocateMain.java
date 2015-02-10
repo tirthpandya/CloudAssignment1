@@ -2,10 +2,14 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.Timestamp;
@@ -34,15 +38,16 @@ public class GeoLocateMain {
 	public static String GOOGLE_GEOCODE_API_URL = "https://maps.googleapis.com/maps/api/geocode/";
 	public static String GOOGLE_GEOCODE_API_RESP_FORMAT = "json";
 	public static String GOOGLE_GEOCODE_API_KEY = "AIzaSyCdTIuspmFfTAI7U4L6r2y9mXD5NovK8t8";
-	public static double EARTH_RADIUS = 3979d;
+	public static double EARTH_RADIUS = 3959d;
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
-
+		String jsValuesString = "";
 		Map<String,Object> location = new HashMap<String,Object>();
 		long startTime = 0l;
+		int resultCount = 0;
 		/*
 		 * Take input from console.
 		 */
@@ -57,6 +62,7 @@ public class GeoLocateMain {
 			String addressFromConsole = (String)addressMapFromConsole.get("address");
 			//Need better error handling - Pending
 			location = getLocationFromAddress(addressFromConsole);
+			jsValuesString += "var centreLat = "+location.get("lat").toString()+";var centreLng = "+location.get("lng")+";";
 			System.out.println(location.get("lat"));
 			System.out.println(location.get("lng"));
 		}else{
@@ -71,16 +77,17 @@ public class GeoLocateMain {
 		 */
 
 		File csvFile = null;
+		
 		String zipForQuery = "";
 		InputStream inputStream= null;
 		BufferedReader br= null;
 		try {
-			URL csvfile= new URL("http://www.cs.cornell.edu/Courses/CS5412/2015sp/_cuonly/restaurants_all.csv");
-			inputStream = csvfile.openStream();
-			
-			//csvFile = new File("C:/Users/Tirth/Downloads/restaurants_all.csv");
-			//inputStream = new FileInputStream(csvFile);
-				
+			//URL csvfile= new URL("http://www.cs.cornell.edu/Courses/CS5412/2015sp/_cuonly/restaurants_all.csv");
+			//inputStream = csvfile.openStream();
+
+			csvFile = new File("C:/Users/Tirth/Downloads/restaurants_all.csv");
+			inputStream = new FileInputStream(csvFile);
+
 			System.out.println("file opened");
 			//br = new BufferedReader(inputStream);
 		} catch (IOException e) {
@@ -120,12 +127,45 @@ public class GeoLocateMain {
 		while(it.hasNext())
 		{
 			Map<String, Object> item = (HashMap<String, Object>)it.next();
+
 			if ((Double)item.get("distance") <= (double)addressMapFromConsole.get("radius")) {
 				System.out.println(item.get("address")+"\t"+item.get("distance")+" miles");
+				if(resultCount == 0)
+				{
+					jsValuesString += "var locations = [";
+				}
+				jsValuesString += "[\""+item.get("address")+"\","+item.get("lat")+","+item.get("lng")+"],";
+				resultCount++;
 			}
 		}
 		final long duration = (System.nanoTime() - startTime) / 1000000000 ;
 		System.out.println("Total runtime = "+ duration);
+		System.out.println("Total no. of result records = "+resultCount);
+		/*if(resultCount > 0){
+			jsValuesString += "];";
+			File jsValueFile = new File("C:/Users/Tirth/Documents/values.js");
+			
+				FileWriter output;
+				try {
+					output = new FileWriter(jsValueFile, false);
+					output.write(jsValuesString);
+					output.close();
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				
+			
+			try {
+				java.awt.Desktop.getDesktop().browse(new URI("file:///C:/Users/Tirth/Documents/mapsTest.html"));
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (URISyntaxException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}*/
 	}
 
 	private static List<HashMap> getLocationDistance(
@@ -135,6 +175,7 @@ public class GeoLocateMain {
 		Double radMultiplier = Math.PI / 180 ;
 		//ListIterator it = bulkLocationReturn.listIterator();
 		//while(it.hasNext())
+		//System.out.println("Distance cal - array size = >"+bulkLocationReturn.size());
 		for(int i=0;i<bulkLocationReturn.size();i++)
 		{
 			Map<String, Object> locationItem = bulkLocationReturn.get(i);
@@ -161,7 +202,7 @@ public class GeoLocateMain {
 		Row row = null;
 		String line = "";
 		String strForParsing = "";
-		String inBuffer = "http://www.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu8216tl1%2Cal%3Do5-942s1f&callback=renderBatch";
+		String inBuffer = "http://open.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu821u72h%2C85%3Do5-942g10&callback=renderBatch";
 		StringBuilder urlString = new StringBuilder();
 		urlString.append("http://www.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu8216tl1%2Cal%3Do5-942s1f&callback=renderBatch");
 		System.out.println("Rows count==>"+rows.size());
@@ -169,7 +210,8 @@ public class GeoLocateMain {
 		while(it.hasNext())
 		{
 			row = (Row)it.next();
-			if(count++ < 99 )
+			count++;
+			if(count < 100 && count < rows.size() )
 			{
 				//urlString.append(i++);
 				inBuffer += ("&location="+row.getValue(4)+" "+row.getValue(5)+" "+row.getValue(6));
@@ -179,7 +221,7 @@ public class GeoLocateMain {
 				//break; //temp - to test if >100 is the issue for the dump
 
 
-
+				inBuffer += ("&location="+row.getValue(4)+" "+row.getValue(5)+" "+row.getValue(6));
 				String urlFinalStr = inBuffer.replace(" ", "%20");
 				try {
 					URL url = new URL(urlFinalStr);
@@ -201,18 +243,23 @@ public class GeoLocateMain {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-					//System.out.println(strForParsing.substring(12, strForParsing.length()-1));
+					System.out.println(strForParsing.substring(12, strForParsing.length()-1));
 					JSONObject locationObject = null;
 					JSONObject object  = new JSONObject(strForParsing.substring(12, strForParsing.length()-1));
 					JSONArray bulkResultArray = object.getJSONArray("results");
 					for(i=0;i<bulkResultArray.length();i++)
 					{
 						Map<String, Object> locationMap = new HashMap<String,Object>();
-						locationObject = bulkResultArray.getJSONObject(i).getJSONArray("locations").getJSONObject(0).getJSONObject("latLng");
+						try{
+						//System.out.println(bulkResultArray.getJSONObject(i).getJSONArray("locations").getJSONObject(0).getJSONObject("latLng"));
+						locationObject = bulkResultArray.getJSONObject(i).getJSONArray("locations").getJSONObject(0).getJSONObject("displayLatLng");
 						locationMap.put("lat",Double.parseDouble(locationObject.get("lat").toString()));
 						locationMap.put("lng",Double.parseDouble(locationObject.get("lng").toString()));
 						locationMap.put("address",bulkResultArray.getJSONObject(i).getJSONObject("providedLocation").get("location").toString());
 						returnVal.add((HashMap<String,Object>) locationMap);
+						}catch(Exception e){
+							continue;
+						}
 					}
 
 				} catch (MalformedURLException e) {
@@ -221,8 +268,8 @@ public class GeoLocateMain {
 				}
 				//urlString.delete(0, urlString.length()-1);
 				//urlString.append("http://www.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu8216tl1%2Cal%3Do5-942s1f&callback=renderBatch");
-				
-				inBuffer = "http://www.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu8216tl1%2Cal%3Do5-942s1f&callback=renderBatch";
+
+				inBuffer = "http://open.mapquestapi.com/geocoding/v1/batch?key=Fmjtd%7Cluu821u72h%2C85%3Do5-942g10&callback=renderBatch";
 				count = 0;
 			}
 		}
